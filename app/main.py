@@ -266,9 +266,9 @@ import re
 import os
 from dotenv import load_dotenv
 
-#---------------------------------------------------------------------------------------------------------------
-from fastapi.middleware.cors import CORSMiddleware # <--- 1. Add Import
-#---------------------------------------------------------------------------------------------------------------
+# #---------------------------------------------------------------------------------------------------------------
+# from fastapi.middleware.cors import CORSMiddleware # <--- 1. Add Import
+# #---------------------------------------------------------------------------------------------------------------
 
 # 1. FORCE LOAD .ENV for Windows/Agno compatibility
 load_dotenv()
@@ -303,15 +303,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("guvi-honeypot")
 
 app = FastAPI(title="Guvi Honeypot Agent")
-# --- 2. Add this block IMMEDIATELY after app = FastAPI(...) ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows ALL domains (Critical for Hackathon Testers)
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# -----------------------------------------------------------
+# # --- 2. Add this block IMMEDIATELY after app = FastAPI(...) ---
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # Allows ALL domains (Critical for Hackathon Testers)
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+# # -----------------------------------------------------------
 state_service = StateService()
 
 # --- Helpers ---
@@ -617,3 +617,4 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 state_service = StateService()
+
