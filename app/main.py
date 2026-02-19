@@ -52,9 +52,15 @@ def format_history_for_agno(history: list[MessageItem]) -> list[dict]:
     return formatted
 
 def clean_json_str(raw_str: str) -> str:
-    # Remove markdown code blocks if present
+    # Remove markdown code blocks
     cleaned = re.sub(r"```json\s*", "", raw_str)
     cleaned = re.sub(r"```\s*$", "", cleaned)
+    # Remove any text before the first '{' and after the last '}'
+    # This handles cases where Llama says "Here is the JSON: { ... }"
+    start = cleaned.find('{')
+    end = cleaned.rfind('}') + 1
+    if start != -1 and end != -1:
+        cleaned = cleaned[start:end]
     return cleaned.strip()
 
 def parse_timestamp(ts) -> float:
@@ -237,3 +243,4 @@ async def chat_endpoint(
         status="success",
         reply=agent_reply_text 
     )
+
