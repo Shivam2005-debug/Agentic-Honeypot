@@ -2,22 +2,18 @@ import logging
 import json
 import re
 import os
+from datetime import datetime
 from dotenv import load_dotenv
-
-#---------------------------------------------------------------------------------------------------------------
-from fastapi.middleware.cors import CORSMiddleware # <--- 1. Add Import
-#---------------------------------------------------------------------------------------------------------------
 
 # 1. FORCE LOAD .ENV for Windows/Agno compatibility
 load_dotenv()
 
 from fastapi import FastAPI, Header, HTTPException, BackgroundTasks, Depends, Security
-from typing import Optional
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
-from agno.agent import Agent
-from agno.models.groq import Groq
-
-# Import internals
 from app.core.config import settings
 from app.core.security import verify_api_key
 from app.models.api_schemas import (
@@ -29,27 +25,21 @@ from app.agents.detector import get_detector_agent
 from app.agents.persona import get_persona_agent
 from app.agents.extractor import get_extractor_agent
 
-#------------------------------------------------------------------------------------------------------------
-from fastapi.exceptions import RequestValidationError
-from fastapi import Request
-from fastapi.responses import JSONResponse
-#------------------------------------------------------------------------------------------------------------
-
-
 # Logging Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("guvi-honeypot")
 
 app = FastAPI(title="Guvi Honeypot Agent")
-# --- 2. Add this block IMMEDIATELY after app = FastAPI(...) ---
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows ALL domains (Critical for Hackathon Testers)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# -----------------------------------------------------------
+
 state_service = StateService()
 
 # --- Helpers ---
@@ -62,18 +52,41 @@ def format_history_for_agno(history: list[MessageItem]) -> list[dict]:
     return formatted
 
 def clean_json_str(raw_str: str) -> str:
-    # Remove ```json and ``` if present
+    # Remove markdown code blocks if present
     cleaned = re.sub(r"```json\s*", "", raw_str)
     cleaned = re.sub(r"```\s*$", "", cleaned)
     return cleaned.strip()
 
-#-------------------------------------------------------------------------------------------------
+def parse_timestamp(ts) -> float:
+    """Safely parse timestamp to unix float (milliseconds)."""
+    try:
+        # If it's already a number (int/float)
+        if isinstance(ts, (int, float)):
+            return float(ts)
+        # If ISO string, convert to timestamp
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        return dt.timestamp() * 1000 
+    except:
+        return 0.0
 
 @app.get("/health")
 async def health_check():
     return {"status": "active", "service": "guvi-honeypot"}
 
-#-------------------------------------------------------------------------------------------------
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Log exact payload on validation error for debugging."""
+    body = await request.body()
+    error_msg = f"VALIDATION ERROR: {exc}"
+    body_content = body.decode()
+    logger.error("--- 422 ERROR DEBUG ---")
+    logger.error(error_msg)
+    logger.error(f"INCOMING BODY: {body_content}")
+    logger.error("-----------------------")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": str(exc), "body_received": body_content},
+    )
 
 # --- Core Endpoint ---
 @app.post("/api/chat", response_model=AgentResponse)
@@ -88,13 +101,9 @@ async def chat_endpoint(
     # 1. Load State
     is_scam_confirmed = state_service.get_scam_status(session_id)
     current_intel = state_service.get_extracted_intelligence(session_id)
-    
-
-    # 2. Scam Detection (If not yet confirmed)
-    # We initialize agent_notes with a default, but try to overwrite it from detector
     current_agent_notes = "Monitoring conversation..." 
 
-
+    # 2. Scam Detection (If not yet confirmed)
     if not is_scam_confirmed:
         detector = get_detector_agent()
         detection_data = {}
@@ -107,14 +116,13 @@ async def chat_endpoint(
                 break # Success! Exit loop
             except json.JSONDecodeError:
                 logger.warning(f"Detector JSON failed (Attempt {attempt+1}). Retrying...")
-                if attempt == 1: # If last attempt failed
+                if attempt == 1: 
                     logger.error(f"Detector Failed completely.")
         
         # Proceed only if we got data
         if detection_data:
-            # Safe access
             is_scam = detection_data.get("is_scam", False)
-            reasoning = detection_data.get("reasoning", "Unknown")
+            # Capture dynamic notes
             behavior_summary = detection_data.get("behavior_summary", "Scam intent detected.")
             
             if is_scam:
@@ -125,30 +133,18 @@ async def chat_endpoint(
             else:
                 return AgentResponse(
                     status="success",
-                    # scamDetected=False,
-                    # response_text="Sorry, I think you have the wrong number.",
                     reply="Sorry, I think you have the wrong number."
-                    # extractedIntelligence=current_intel
                 )
         else:
              # Fallback if 2 retries failed
              return AgentResponse(
                 status="success",
-                # scamDetected=False,
-                # response_text="Hello? Who is this?",
                 reply="Hello? Who is this?"
-                # extractedIntelligence=current_intel
             )
-#-----------------------------------------------------------------------------------------------------------
     else:
-        # If scam was ALREADY confirmed in previous turns, we keep the previous status
-        # Ideally, we should persist the 'behavior_summary' in Redis too, 
-        # but for now, let's set a generic active note or retrieve from Redis if we added that field.
-        # For this Hackathon step, let's keep it simple:
         current_agent_notes = "Scam previously detected. Engaging agent."
 
     # 3. Intelligence Extraction
-
     try:
         extractor = get_extractor_agent()
         new_intel_dict = {}
@@ -171,8 +167,6 @@ async def chat_endpoint(
         logger.error(f"Extraction logic error: {e}")
         # Continue without updating intel - do not crash
 
-#-------------------------------------------------------------------------------------------------------------------
-
     # 4. Generate Persona Response
     try:
         agno_history = format_history_for_agno(payload.conversationHistory)
@@ -183,87 +177,63 @@ async def chat_endpoint(
         logger.error(f"Persona Generation Failed: {e}")
         agent_reply_text = "I am having trouble hearing you. Can you say that again?"
 
-
-
     # 5. Metrics & Termination Logic
     total_messages = len(payload.conversationHistory) + 2
+    
+    # --- DURATION CALCULATION ---
+    # Strategy: Use Payload Timestamps (Best for Scoring)
+    start_time = 0.0
+    end_time = parse_timestamp(payload.message.timestamp)
+    
+    if payload.conversationHistory:
+        # Get timestamp of the FIRST message in history
+        first_msg = payload.conversationHistory[0]
+        start_time = parse_timestamp(first_msg.timestamp)
+    else:
+        # This is the first message
+        start_time = end_time
+
+    # Calculate duration (Absolute diff)
+    duration_ms = abs(end_time - start_time)
+    duration_seconds = int(duration_ms / 1000)
+    
+    # Fallback: If duration is 0 but we have messages (e.g. timestamps missing/bad), use estimate
+    if duration_seconds == 0 and total_messages > 1:
+        duration_seconds = total_messages * 30
+
     engagement_metrics = EngagementMetrics(
         totalMessagesExchanged=total_messages,
-        engagementDurationSeconds=total_messages * 30
+        engagementDurationSeconds=duration_seconds
     )
     
-    # STRICTER TERMINATION LOGIC
-    # 1. Filter bank accounts: Must be at least 9 digits
-    valid_bank_accounts = [
-        acc for acc in current_intel.bankAccounts 
-        if len(re.sub(r"\D", "", acc)) >= 9
-    ]
+    # --- CALLBACK TRIGGER ---
+    # Logic: 20 Messages OR Scam Confirmed + Very Long Convo
     
-    # 2. Filter Phone Numbers: Must be at least 10 digits
-    valid_phone_numbers = [
-        phone for phone in current_intel.phoneNumbers
-        if len(re.sub(r"\D", "", phone)) >= 10
-    ]
-
-    has_critical_intel = (
-        len(valid_bank_accounts) > 0 or 
-        len(current_intel.upiIds) > 0 or
-        len(valid_phone_numbers) > 0 or
-        len(current_intel.phishingLinks) > 0
-    )
-
-    # is_long_convo = total_messages > 15
-    is_long_convo = total_messages > 30
-    
-    # NEW: Accumulation Threshold
-    # Turn 1 = 2 msgs. Turn 2 = 4 msgs. Turn 3 = 6 msgs.
-    # We wait until Turn 3 (6 messages) to fire the callback, allowing accumulation.
-    # OR we fire immediately if the conversation is getting very long (timeout).
-    # MIN_ACCUMULATION_DEPTH = 6 
-    # MIN_ACCUMULATION_DEPTH = 10
     MIN_ACCUMULATION_DEPTH = 20
     
-    should_report = is_scam_confirmed and has_critical_intel and (total_messages >= MIN_ACCUMULATION_DEPTH or is_long_convo)
+    should_report = is_scam_confirmed and (total_messages >= MIN_ACCUMULATION_DEPTH)
 
     if should_report:
         if not state_service.is_conversation_complete(session_id):
             state_service.mark_conversation_complete(session_id)
             
             final_payload = {
+                "status": "completed",
                 "sessionId": session_id,
                 "scamDetected": True,
+                "scamType": "financial_fraud_generic", # Default, refined by agentNotes
                 "totalMessagesExchanged": total_messages,
                 "extractedIntelligence": current_intel.model_dump(),
-                "agentNotes": "Autonomous engagement completed. Intelligence extracted."
+                "engagementMetrics": engagement_metrics.model_dump(),
+                "agentNotes": current_agent_notes
             }
             background_tasks.add_task(callback_service.send_final_report, final_payload)
             logger.info(f"Session {session_id}: Scheduled final callback (Accumulated).")
+        else:
+             logger.info(f"Session {session_id}: Continuing engagement (Report already sent).")
 
     # 6. Return Response
     return AgentResponse(
         status="success",
         reply=agent_reply_text 
     )
-
-
-# --- DEBUG HANDLER (ADD THIS) ---
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    If GUVI sends invalid JSON, this logs exactly what they sent 
-    so we can fix our schema.
-    """
-    body = await request.body()
-    error_msg = f"VALIDATION ERROR: {exc}"
-    body_content = body.decode()
-    logger.error("--- 422 ERROR DEBUG ---")
-    logger.error(error_msg)
-    logger.error(f"INCOMING BODY: {body_content}")
-    logger.error("-----------------------")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": str(exc), "body_received": body_content},
-    )
-
-state_service = StateService()
-
