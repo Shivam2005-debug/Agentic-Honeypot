@@ -8,9 +8,9 @@ def get_extractor_agent():
         instructions=[
             "Analyze the text for financial and contact details provided by the SENDER.",
             "### EXTRACTION RULES",
-            "1. *Bank Accounts:* Extract only if they look like full account numbers (usually >9 digits). IGNORE partial numbers like '8822xxxx'. IGNORE the victim's own account numbers if mentioned.",
-            "2. *UPI IDs:* Extract valid UPI handles (e.g., 'name@bank', '99999@paytm'). IGNORE the victim's own UPI IDs if mentioned.",
-            "3. *Phone Numbers:* Extract 10-digit mobile numbers. IGNORE short codes or OTPs (6 digits). IGNORE the victim's own mobile numbers if mentioned.",
+            "1. *Bank Accounts:* Extract only if they look like full account numbers (usually >9 digits).",
+            "2. *UPI IDs:* Extract valid UPI handles (e.g., 'name@bank', '99999@paytm').",
+            "3. *Phone Numbers:* Extract 10-digit mobile numbers. IGNORE short codes or OTPs (6 digits).",
             "4. *Phishing Links:* Extract full URLs.",
             "5. **Email Addresses:** Extract valid emails (e.g., 'support@gmail.com'). CRITICAL: Must have a Top-Level Domain (.com, .in, .org). If it ends in a bank handle (e.g., @okicici, @ybl) without a TLD, it is a UPI ID, NOT an email.",
             "6. **Case/Reference IDs:** Extract alphanumeric case numbers (e.g., 'CID-9988', 'Ref#12345').",
@@ -26,3 +26,4 @@ def get_extractor_agent():
         ],
         markdown=False,
     )
+
