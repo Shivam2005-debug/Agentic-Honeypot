@@ -25,9 +25,14 @@ class ExtractedIntelligence(BaseModel):
     upiIds: List[str] = []
     phishingLinks: List[str] = []
     phoneNumbers: List[str] = []
-    emailAddresses: List[str] = [] # <--- NEW FIELD
+    emailAddresses: List[str] = []
     suspiciousKeywords: List[str] = []
+    # --- NEW FIELDS FOR 100/100 SCORE ---
+    caseIds: List[str] = []
+    policyNumbers: List[str] = []
+    orderNumbers: List[str] = []
 
 class AgentResponse(BaseModel):
     status: str = "success"
     reply: str = Field(..., description="The agent's reply text")
+
