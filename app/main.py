@@ -66,10 +66,8 @@ def clean_json_str(raw_str: str) -> str:
 def parse_timestamp(ts) -> float:
     """Safely parse timestamp to unix float (milliseconds)."""
     try:
-        # If it's already a number (int/float)
         if isinstance(ts, (int, float)):
             return float(ts)
-        # If ISO string, convert to timestamp
         dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
         return dt.timestamp() * 1000 
     except:
@@ -81,17 +79,11 @@ async def health_check():
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Log exact payload on validation error for debugging."""
     body = await request.body()
-    error_msg = f"VALIDATION ERROR: {exc}"
-    body_content = body.decode()
-    logger.error("--- 422 ERROR DEBUG ---")
-    logger.error(error_msg)
-    logger.error(f"INCOMING BODY: {body_content}")
-    logger.error("-----------------------")
+    logger.error(f"VALIDATION ERROR: {exc} | BODY: {body.decode()}")
     return JSONResponse(
         status_code=422,
-        content={"detail": str(exc), "body_received": body_content},
+        content={"detail": str(exc), "body_received": body.decode()},
     )
 
 # --- Core Endpoint ---
@@ -114,35 +106,35 @@ async def chat_endpoint(
         detector = get_detector_agent()
         detection_data = {}
         
-        # RETRY LOGIC: Try twice to get valid JSON
         for attempt in range(2):
             try:
                 raw_response = detector.run(user_text).content
                 detection_data = json.loads(clean_json_str(raw_response))
-                break # Success! Exit loop
+                break 
             except json.JSONDecodeError:
-                logger.warning(f"Detector JSON failed (Attempt {attempt+1}). Retrying...")
-                if attempt == 1: 
-                    logger.error(f"Detector Failed completely.")
+                logger.warning(f"Detector JSON failed (Attempt {attempt+1})")
         
-        # Proceed only if we got data
         if detection_data:
             is_scam = detection_data.get("is_scam", False)
-            # Capture dynamic notes
             behavior_summary = detection_data.get("behavior_summary", "Scam intent detected.")
+            # NEW: Dynamic Metadata Capture
+            scam_type = detection_data.get("scam_type", "financial_fraud")
+            confidence = detection_data.get("confidence", 0.95)
             
             if is_scam:
                 is_scam_confirmed = True
                 state_service.set_scam_status(session_id, True)
+                # SAVE METADATA TO REDIS
+                state_service.set_scam_metadata(session_id, scam_type, confidence)
+                
                 current_agent_notes = behavior_summary 
-                logger.info(f"Session {session_id}: SCAM DETECTED. Notes: {behavior_summary}")
+                logger.info(f"Session {session_id}: SCAM DETECTED ({scam_type}). Notes: {behavior_summary}")
             else:
                 return AgentResponse(
                     status="success",
                     reply="Sorry, I think you have the wrong number."
                 )
         else:
-             # Fallback if 2 retries failed
              return AgentResponse(
                 status="success",
                 reply="Hello? Who is this?"
@@ -154,24 +146,19 @@ async def chat_endpoint(
     try:
         extractor = get_extractor_agent()
         new_intel_dict = {}
-        
-        # RETRY LOGIC
         for attempt in range(2):
             try:
                 raw_intel = extractor.run(user_text).content
                 new_intel_dict = json.loads(clean_json_str(raw_intel))
                 break
             except json.JSONDecodeError:
-                 logger.warning(f"Extractor JSON failed (Attempt {attempt+1}). Retrying...")
+                 logger.warning(f"Extractor JSON failed (Attempt {attempt+1})")
         
         if new_intel_dict:
-            # Merge
             new_intel_model = ExtractedIntelligence(**new_intel_dict)
             current_intel = state_service.update_intelligence(session_id, new_intel_model)
-            
     except Exception as e:
         logger.error(f"Extraction logic error: {e}")
-        # Continue without updating intel - do not crash
 
     # 4. Generate Persona Response
     try:
@@ -183,39 +170,27 @@ async def chat_endpoint(
         logger.error(f"Persona Generation Failed: {e}")
         agent_reply_text = "I am having trouble hearing you. Can you say that again?"
 
-    # 5. Metrics & Termination Logic
+    # 5. Metrics & Reporting Logic
     total_messages = len(payload.conversationHistory) + 2
     
     # --- DURATION CALCULATION ---
-    # Strategy: Use Payload Timestamps (Best for Scoring)
     start_time = 0.0
     end_time = parse_timestamp(payload.message.timestamp)
     
     if payload.conversationHistory:
-        # Get timestamp of the FIRST message in history
         first_msg = payload.conversationHistory[0]
         start_time = parse_timestamp(first_msg.timestamp)
     else:
-        # This is the first message
         start_time = end_time
 
-    # Calculate duration (Absolute diff)
     duration_ms = abs(end_time - start_time)
     duration_seconds = int(duration_ms / 1000)
     
-    # Fallback: If duration is 0 but we have messages (e.g. timestamps missing/bad), use estimate
     if duration_seconds == 0 and total_messages > 1:
         duration_seconds = total_messages * 30
 
-    engagement_metrics = EngagementMetrics(
-        totalMessagesExchanged=total_messages,
-        engagementDurationSeconds=duration_seconds
-    )
-    
     # --- CALLBACK TRIGGER ---
-    # Logic: 20 Messages OR Scam Confirmed + Very Long Convo
-    
-    MIN_ACCUMULATION_DEPTH = 20
+    MIN_ACCUMULATION_DEPTH = 20 
     
     should_report = is_scam_confirmed and (total_messages >= MIN_ACCUMULATION_DEPTH)
 
@@ -223,18 +198,23 @@ async def chat_endpoint(
         if not state_service.is_conversation_complete(session_id):
             state_service.mark_conversation_complete(session_id)
             
+            # Retrieve Persisted Metadata
+            scam_metadata = state_service.get_scam_metadata(session_id)
+
             final_payload = {
-                "status": "completed",
                 "sessionId": session_id,
                 "scamDetected": True,
-                "scamType": "financial_fraud_generic", # Default, refined by agentNotes
+                # DYNAMIC FIELDS FROM REDIS
+                "scamType": scam_metadata.get("scamType", "financial_fraud"),
+                "confidenceLevel": scam_metadata.get("confidence", 1.0),
+                # FLATTENED METRICS (Page 12 Compliant)
                 "totalMessagesExchanged": total_messages,
+                "engagementDurationSeconds": duration_seconds,
                 "extractedIntelligence": current_intel.model_dump(),
-                "engagementMetrics": engagement_metrics.model_dump(),
                 "agentNotes": current_agent_notes
             }
             background_tasks.add_task(callback_service.send_final_report, final_payload)
-            logger.info(f"Session {session_id}: Scheduled final callback (Accumulated).")
+            logger.info(f"Session {session_id}: Scheduled final callback.")
         else:
              logger.info(f"Session {session_id}: Continuing engagement (Report already sent).")
 
@@ -243,4 +223,3 @@ async def chat_endpoint(
         status="success",
         reply=agent_reply_text 
     )
-
