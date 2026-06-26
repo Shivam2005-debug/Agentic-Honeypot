@@ -16,3 +16,8 @@ A finalized AI solution for the India AI Impact Buildathon. This system detects 
 
 ## ☁️ Deployment
 Deployed on Railway. Protected by `x-api-key`.
+
+## 👥 Authors
+- **Shivam Wangikar**
+- **Gaurav Yadav**
+
