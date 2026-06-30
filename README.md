@@ -134,11 +134,13 @@ The architectural decisions described below explain why the pipeline is organize
 The following architectural decisions balance conversational realism, maintainability, reliable intelligence extraction, and scalable request processing.
 
 <details>
-<summary><strong>1. Multi-Agent Separation</strong></summary>
+<summary><strong>🧩 1. Multi-Agent Separation</strong></summary>
 
 **Problem**
 
 Scam classification, conversational engagement, and intelligence extraction have different objectives and produce different outputs. Combining these responsibilities into a single prompt increases prompt complexity and makes individual behaviors harder to evolve.
+
+---
 
 **Decision**
 
@@ -148,9 +150,13 @@ Separate the pipeline into three specialized agents:
 * **Persona Agent (Engagement)**
 * **Extractor Agent (Intelligence Extraction)**
 
+---
+
 **Trade-off**
 
 The orchestration layer becomes more complex because requests coordinate multiple specialized components rather than a single LLM invocation.
+
+---
 
 **Benefit**
 
@@ -159,19 +165,25 @@ Each agent can evolve independently, prompts remain focused on a single responsi
 </details>
 
 <details>
-<summary><strong>2. Hybrid Context Management</strong></summary>
+<summary><strong>🔄 2. Hybrid Context Management</strong></summary>
 
 **Problem**
 
 The client provides the complete conversation history with every request. Persisting another copy of the conversation inside Redis would require maintaining two representations of the same dialogue.
 
+---
+
 **Decision**
 
 Treat the client-provided conversation history as the authoritative conversational context while persisting only persistent session intelligence, scam status, callback state, and related metadata.
 
+---
+
 **Trade-off**
 
 Conversation history cannot be reconstructed from Redis alone because Redis intentionally stores intelligence rather than dialogue.
+
+---
 
 **Benefit**
 
@@ -180,19 +192,25 @@ This separation eliminates duplicated conversational state, simplifies prompt co
 </details>
 
 <details>
-<summary><strong>3. Stateless API with Persistent Session Intelligence</strong></summary>
+<summary><strong>📡 3. Stateless API with Persistent Session Intelligence</strong></summary>
 
 **Problem**
 
 Multi-turn conversations require information to persist across requests while maintaining a scalable request-processing model.
 
+---
+
 **Decision**
 
 Keep the API stateless by requiring the client to provide conversational context on every request, while Redis persists only long-lived session intelligence.
 
+---
+
 **Trade-off**
 
 Persistent session state is intentionally minimal and does not attempt to reconstruct the complete conversation.
+
+---
 
 **Benefit**
 
@@ -201,19 +219,25 @@ The architecture remains horizontally scalable while preserving intelligence acc
 </details>
 
 <details>
-<summary><strong>4. Controlled Engagement After Detection</strong></summary>
+<summary><strong>🎯 4. Controlled Engagement After Detection</strong></summary>
 
 **Problem**
 
 Ending the interaction immediately after scam detection limits the amount of intelligence that can be collected.
 
+---
+
 **Decision**
 
 Once scam intent has been confirmed, the pipeline transitions from classification to controlled engagement. The Persona Agent continues interacting with the scammer while the Extractor Agent accumulates structured intelligence across subsequent turns.
 
+---
+
 **Trade-off**
 
 Conversations continue beyond the initial detection event, increasing session duration.
+
+---
 
 **Benefit**
 
@@ -222,19 +246,25 @@ Additional engagement produces a richer and more complete intelligence report be
 </details>
 
 <details>
-<summary><strong>5. Incremental Intelligence Accumulation</strong></summary>
+<summary><strong>📊 5. Incremental Intelligence Accumulation</strong></summary>
 
 **Problem**
 
 Scam-related identifiers are often disclosed gradually across multiple conversational turns rather than appearing in a single message.
 
+---
+
 **Decision**
 
 Newly extracted intelligence is merged with previously stored session intelligence instead of replacing existing values.
 
+---
+
 **Trade-off**
 
 Session updates require merge and deduplication logic before persistence.
+
+---
 
 **Benefit**
 
@@ -243,19 +273,25 @@ The final callback contains a consolidated intelligence report representing the 
 </details>
 
 <details>
-<summary><strong>6. Bounded Conversation Lifecycle</strong></summary>
+<summary><strong>⏱️ 6. Bounded Conversation Lifecycle</strong></summary>
 
 **Problem**
 
 The client provides no explicit indication that a conversation has ended. Without a completion condition, sessions could either terminate prematurely or remain open indefinitely.
 
+---
+
 **Decision**
 
 Allow continued engagement until a predefined interaction boundary is reached before generating the final callback report.
 
+---
+
 **Trade-off**
 
 Conversation duration is governed by a configurable interaction policy rather than an explicit client-generated completion event.
+
+---
 
 **Benefit**
 
@@ -264,19 +300,25 @@ The system guarantees eventual reporting while allowing sufficient conversationa
 </details>
 
 <details>
-<summary><strong>7. Single Callback Guarantee</strong></summary>
+<summary><strong>🔒 7. Single Callback Guarantee</strong></summary>
 
 **Problem**
 
 Subsequent requests after report generation should not produce duplicate callback payloads.
 
+---
+
 **Decision**
 
 Persist session completion status after a successful callback so future requests recognize that reporting has already been completed.
 
+---
+
 **Trade-off**
 
 An additional completion state must be maintained for each session.
+
+---
 
 **Benefit**
 
@@ -330,7 +372,7 @@ Each request represents the current state of an ongoing conversation and contain
 The API treats the supplied conversation history as the authoritative conversational context for the current request.
 
 <details>
-<summary>Example Request</summary>
+<summary><strong>📤 Example Request</strong></summary>
 
 ```json
 {
@@ -352,7 +394,7 @@ The API treats the supplied conversation history as the authoritative conversati
 Each successful request returns the next conversational response generated by the Persona Agent.
 
 <details>
-<summary>Example Response</summary>
+<summary><strong>📥 Example Response</strong></summary>
 
 ```json
 {
@@ -370,7 +412,7 @@ The returned reply should be appended to the client's conversation history befor
 Once the conversation reaches its completion criteria, the accumulated session intelligence is consolidated into a structured callback payload.
 
 <details>
-<summary>Example Callback</summary>
+<summary><strong>📋 Example Callback</strong></summary>
 
 ```json
 {
@@ -485,7 +527,7 @@ uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ## Project Structure
 
 <details>
-<summary>Expand file tree</summary>
+<summary><strong>📂 Expand file tree</strong></summary>
 
 ```text
 .
