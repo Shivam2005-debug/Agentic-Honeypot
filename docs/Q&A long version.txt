@@ -1,0 +1,356 @@
+Good.
+
+Now we prepare for war.
+
+Because the 2-minute pitch gets you applause.
+
+The 8-minute Q&A decides whether you are Top 6 or Top Forgettable.
+
+I’m going to structure this in 5 layers:
+
+1. 🔍 Technical Architecture Attacks
+
+
+2. 🧠 AI / Model Reliability Attacks
+
+
+3. ⚙️ Infra & Deployment Attacks
+
+
+4. 🎯 Product & Real-World Attacks
+
+
+5. 🧨 Trap Questions (Psychological + Pressure)
+
+
+
+For each:
+
+Likely Question
+
+What They’re Actually Testing
+
+Strong Answer
+
+What NOT to say
+
+
+
+---
+
+🔍 1️⃣ TECHNICAL ARCHITECTURE QUESTIONS
+
+
+---
+
+Q1: Why FastAPI?
+
+What they’re testing:
+Did you choose stack randomly?
+
+Answer: “We chose FastAPI for async handling, Pydantic schema validation, and predictable API performance. Since evaluation depended on strict request–response compliance, strong schema validation was critical.”
+
+Do NOT say:
+“It’s what we know.”
+
+
+---
+
+Q2: Why Redis for session memory?
+
+Testing:
+Scalability thinking.
+
+Answer: “We needed lightweight, low-latency session persistence for multi-turn conversations. Redis allows horizontal scaling without complex state synchronization.”
+
+Do NOT say:
+“We didn’t want to set up vector DB.”
+
+
+---
+
+Q3: Why not use vector embeddings for memory?
+
+Testing:
+Depth of understanding.
+
+Answer: “Our objective was short-to-medium engagement intelligence extraction. Redis key-based session memory provided deterministic context retention without retrieval overhead.”
+
+Clean. Mature.
+
+
+---
+
+Q4: How do you ensure persona consistency?
+
+Testing:
+Prompt engineering depth.
+
+Answer: “We separate detector logic from persona logic in the decision layer. The persona state is persisted in session memory, preventing drift across turns.”
+
+
+---
+
+Q5: Why 5 turns before callback?
+
+You will get this.
+
+Answer: “We observed richer structured intelligence extraction during sustained engagement. The 5-turn threshold balances extraction depth with evaluation constraints.”
+
+No apology. No panic.
+
+
+---
+
+Q6: What happens if scammer leaves early?
+
+Answer: “Detection still occurs, but extraction depth reduces. Our system is optimized for sustained engagement scenarios.”
+
+Stop. Don’t over-explain.
+
+
+---
+
+🧠 2️⃣ AI / MODEL RELIABILITY QUESTIONS
+
+
+---
+
+Q7: How do you prevent hallucination?
+
+Answer: “We constrain output structure before callback. Intelligence extraction is separated from conversational generation, and only structured validated fields are sent.”
+
+
+---
+
+Q8: Do you have precision/recall metrics?
+
+If you don’t:
+
+Answer: “In this version, we prioritized deployment stability and evaluator compliance. Future work includes benchmarking against labeled scam datasets.”
+
+Confidence. No bluffing.
+
+
+---
+
+Q9: How do you handle multilingual scams?
+
+Your failure slide mentions ambiguity.
+
+Answer: “Mixed-language inputs can introduce early-stage classification ambiguity. Extending training data or using multilingual fine-tuning would improve robustness.”
+
+
+---
+
+Q10: Could scammers detect they’re talking to AI?
+
+Answer: “Possibly in extreme cases. However, persona consistency and natural conversational variability reduce detection risk.”
+
+Do NOT say: “They won’t detect.”
+
+
+---
+
+⚙️ 3️⃣ INFRA & DEPLOYMENT QUESTIONS
+
+
+---
+
+Q11: How do you handle cold starts?
+
+You faced this.
+
+Answer: “We tested under Railway public deployment. Initial cold-start latency exists, but session handling and callback compliance remain stable.”
+
+
+---
+
+Q12: Is this production-ready?
+
+Answer: “Architecturally scalable — yes. For production, we would add load balancing, monitoring, and structured logging.”
+
+
+---
+
+Q13: What if Redis fails?
+
+Answer: “In distributed deployment, Redis replication or fallback in-memory session cache could be added.”
+
+Do NOT say: “It would crash.”
+
+
+---
+
+🎯 4️⃣ PRODUCT & REAL-WORLD QUESTIONS
+
+
+---
+
+Q14: How is this better than simply blocking scammers?
+
+This is key.
+
+Answer: “Blocking stops one instance. Engagement extracts patterns. Those patterns improve future detection systems.”
+
+
+---
+
+Q15: Where would this be deployed?
+
+Answer: “Banking apps, fintech onboarding systems, telecom fraud monitoring platforms.”
+
+
+---
+
+Q16: Does this collect victim data?
+
+Answer: “No. We explicitly ignore victim-provided sensitive data and focus only on scammer-originated signals.”
+
+This is important.
+
+
+---
+
+Q17: Could this be misused?
+
+Answer: “As with any AI system, safeguards are necessary. Strict API access control and monitoring would be required in production.”
+
+
+---
+
+🧨 5️⃣ TRAP QUESTIONS
+
+These are subtle.
+
+
+---
+
+Q18: Is this just a chatbot with extra steps?
+
+Smile slightly.
+
+Answer: “No. Chatbots respond. Our system extracts structured intelligence and enforces reporting compliance.”
+
+Pause.
+
+
+---
+
+Q19: Why should this win?
+
+Answer: “It actively depletes scammer efficiency while generating reusable fraud intelligence.”
+
+
+---
+
+Q20: What’s your biggest weakness?
+
+Do not ramble.
+
+Answer: “LLM-based detection currently lacks probabilistic confidence scoring. That would strengthen reliability.”
+
+Shows honesty + awareness.
+
+
+---
+
+🔥 LIVE TEST ROUND PREP (CRITICAL)
+
+If you reach Top 6, the 30-minute refinement round matters more than Q&A.
+
+Expect them to test:
+
+Hinglish input
+
+Polite scam
+
+Aggressive scam
+
+Very short message
+
+Long engagement
+
+Random nonsense input
+
+Missing conversationHistory field
+
+
+You must test these yourself before stage.
+
+
+---
+
+🎭 BODY LANGUAGE STRATEGY
+
+If you don’t know → pause 1 second.
+
+Never say “good question”.
+
+Never argue.
+
+If teammate answers, look at them.
+
+If you answer, keep it under 20 seconds unless asked deeper.
+
+
+
+---
+
+⚠️ What You Must Not Do
+
+❌ Over-explain Railway debugging story
+❌ Mention sleepless nights
+❌ Say “we were scared of disqualification”
+❌ Use too many buzzwords
+
+
+---
+
+🎯 Where You Can Score Extra
+
+If they ask about improvement:
+
+Say:
+
+“We would integrate probabilistic scoring and adversarial robustness testing to strengthen detection confidence.”
+
+That sounds senior.
+
+
+---
+
+Final Advice
+
+Your system’s strengths:
+
+Persona continuity
+
+Structured extraction
+
+Long engagement optimization
+
+Strict evaluator compliance
+
+
+Your vulnerabilities:
+
+Short-conversation extraction depth
+
+LLM classification variability
+
+
+Control the narrative.
+
+
+---
+
+Now let me ask you something serious:
+
+If they challenge your 5-turn logic and suggest 2-turn callback is better,
+will you defend it…
+or agree and pivot?
+
+Tell me your instinct.
+
+Because how you respond in that moment decides everything.

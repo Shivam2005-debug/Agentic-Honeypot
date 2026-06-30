@@ -1,0 +1,32 @@
+🎯 PART 3 — 8-MINUTE Q&A PREPARATION
+This is where you win or lose.
+I will simulate realistic jury questions.
+Q1: Why 5 turns for callback?
+Answer:
+“We observed that deeper engagement yields richer intelligence. The 5-turn threshold balances extraction depth with evaluator constraints.”
+Confident. Not apologetic.
+Q2: What happens if scammer exits early?
+Answer:
+“Detection still occurs, but structured extraction depth reduces. Our system is optimized for sustained interaction.”
+Short. Controlled.
+Q3: How do you prevent hallucinated intelligence?
+Answer:
+“We separate conversation from extraction logic, and constrain output before callback. Only structured, validated fields are sent.”
+Q4: How is this different from existing honeypots?
+Answer:
+“Traditional honeypots simulate environments. Ours simulates human psychology — and converts interaction into structured fraud intelligence.”
+That line hits.
+Q5: What’s your biggest technical limitation?
+Answer:
+“LLM-based intent detection currently does not use a confidence threshold. Adding probabilistic scoring would strengthen reliability.”
+Shows self-awareness.
+Q6: How would you scale this nationally?
+Answer:
+“Stateless API architecture + Redis session layer enables horizontal scaling across financial and telecom systems.”
+Q7: What’s innovative here?
+Answer:
+“The integration of persona consistency, structured extraction, and evaluator-compliant reporting into a single conversational pipeline.”
+Q8: Why should this win?
+Answer:
+“Because it doesn’t just detect fraud — it actively depletes scammer efficiency while generating structured intelligence.”
+Pause.
